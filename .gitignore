@@ -1,0 +1,6 @@
+.venv/
+.env
+Makefile
+DOM/
+CDOM/
+CCDOM/

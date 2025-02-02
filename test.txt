@@ -1,0 +1,25 @@
+# Vérifier si CDOM existe
+if not os.path.exists(CDOM_DIR):
+    print(f"❌ Le dossier {CDOM_DIR} n'existe pas !")
+else:
+    extracted_results = {}
+
+    # Boucler sur les sous-dossiers (ID des biens)
+    for property_id in os.listdir(CDOM_DIR):
+        property_path = os.path.join(CDOM_DIR, property_id)
+
+        # Vérifier si c'est bien un dossier
+        if os.path.isdir(property_path):
+            general_html_path = os.path.join(property_path, "general.html")
+
+            # Vérifier si le fichier general.html existe
+            if os.path.exists(general_html_path):
+                extracted_data = extract_general_datas(general_html_path)
+                if extracted_data:
+                    extracted_results[property_id] = extracted_data
+            else:
+                print(f"⚠️ Aucun fichier general.html trouvé pour {property_id}")
+
+    # Affichage des résultats sous format JSON
+    json_output = json.dumps(extracted_results, indent=4, ensure_ascii=False, separators=(',', ':'))
+    print(json_output)
