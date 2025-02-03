@@ -80,7 +80,6 @@ def extract_general_datas(file_path):
             parent_div = cles_div.find_parent()
             if parent_div:
                 link = parent_div.find('a')
-                print(link)
                 if link:
                     extracted_data['lien_points_cles'] = link.get('href')
                 all_spans = parent_div.find_all('span')
@@ -97,6 +96,47 @@ def extract_general_datas(file_path):
                     extracted_data[f'point_cle_titre_{i}'] = clean_text(title)
                     extracted_data[f'point_cle_description_{i}'] = clean_text(description)
 
+        presentation_div = baseDom.find('div', {'color': 'black'}, string=lambda text: text and "Présentation" in text)
+        if presentation_div:
+            parent_div = presentation_div.find_parent()
+            if parent_div:
+                all_spans = parent_div.find_all('span')
+                lot_span = all_spans[0] if len(all_spans) > 0 else None
+                surface_span = all_spans[2] if len(all_spans) > 2 else None
+                presentation_span = all_spans[3] if len(all_spans) > 3 else None
+                if lot_span:
+                    extracted_data['lot'] = clean_text(lot_span.get_text())
+                if surface_span:
+                    extracted_data['surface'] = clean_text(surface_span.get_text()).replace("m 2", "m²")
+                if presentation_span:
+                    presentation_div = presentation_span.find('div')
+                    if presentation_div:
+                        p_tags = presentation_div.find_all('p', recursive=False)
+                        presentation_titles = []
+                        presentation_descriptions = []
+
+                        for p in p_tags:
+                            # Ignorer les balises <p> contenant uniquement un <br />
+                            if p.find('br'):
+                                continue
+                            
+                            # Si <p> contient une balise <strong><u>, récupérer le texte sous <u>
+                            strong_u_tag = p.find('strong')
+                            if strong_u_tag and strong_u_tag.find('u'):
+                                presentation_titles.append(clean_text(strong_u_tag.find('u').get_text()))
+                                continue  # Passer au prochain <p>
+                            
+                            # Si <p> contient du texte brut (sans enfants), l'ajouter à la description
+                            if p.text.strip():
+                                presentation_descriptions.append(clean_text(p.text.strip()))
+
+                        # Associer titres et descriptions
+                        for i in range(min(len(presentation_titles), len(presentation_descriptions))):
+                            extracted_data[f'presentation_titre_{i+1}'] = presentation_titles[i]
+                            extracted_data[f'presentation_description_{i+1}'] = presentation_descriptions[i]
+                        
+
+
         return extracted_data
     except Exception as e:
         print(f"Erreur lors de l'extraction des données : {e}")
@@ -106,4 +146,4 @@ def extract_general_datas(file_path):
 CDOM_DIR = "CDOM"
 
 datas = extract_general_datas('CDOM/0cabe831-37c4-45cf-9956-06f28eb260f2/general.html')
-print(datas)
+print(json.dumps(datas, indent=4, ensure_ascii=False))
