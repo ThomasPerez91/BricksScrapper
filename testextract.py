@@ -111,31 +111,71 @@ def extract_general_datas(file_path):
                 if presentation_span:
                     presentation_div = presentation_span.find('div')
                     if presentation_div:
-                        p_tags = presentation_div.find_all('p', recursive=False)
-                        presentation_titles = []
-                        presentation_descriptions = []
+                        elements = presentation_div.find_all(['p', 'ul'], recursive=False)  # Récupérer les <p> et <ul>
+                        current_title = None
+                        title_count = 0
+                        description_text = []
 
-                        for p in p_tags:
-                            # Ignorer les balises <p> contenant uniquement un <br />
-                            if p.find('br'):
-                                continue
-                            
-                            # Si <p> contient une balise <strong><u>, récupérer le texte sous <u>
-                            strong_u_tag = p.find('strong')
+                        for element in elements:
+                            # Si élément est un <p> contenant <strong><u>, c'est un titre
+                            strong_u_tag = element.find('strong')
                             if strong_u_tag and strong_u_tag.find('u'):
-                                presentation_titles.append(clean_text(strong_u_tag.find('u').get_text()))
-                                continue  # Passer au prochain <p>
-                            
-                            # Si <p> contient du texte brut (sans enfants), l'ajouter à la description
-                            if p.text.strip():
-                                presentation_descriptions.append(clean_text(p.text.strip()))
+                                # Sauvegarde l'ancien titre et ses descriptions avant de passer au suivant
+                                if current_title and description_text:
+                                    extracted_data[f'presentation_titre_{title_count}'] = current_title
+                                    extracted_data[f'presentation_description_{title_count}'] = ' '.join(description_text)
+                                    description_text = []
 
-                        # Associer titres et descriptions
-                        for i in range(min(len(presentation_titles), len(presentation_descriptions))):
-                            extracted_data[f'presentation_titre_{i+1}'] = presentation_titles[i]
-                            extracted_data[f'presentation_description_{i+1}'] = presentation_descriptions[i]
-                        
+                                # Définir le nouveau titre
+                                title_count += 1
+                                current_title = clean_text(strong_u_tag.find('u').get_text())
 
+                            # Si l'élément est un <p> contenant du texte brut et ce n'est pas un titre, c'est une description
+                            elif element.text.strip() and not element.find('br'):
+                                description_text.append(clean_text(element.text.strip()))
+
+                            # Si l'élément est une liste <ul>, ajouter chaque <li> comme description
+                            elif element.name == 'ul':
+                                for li in element.find_all('li'):
+                                    description_text.append(clean_text(li.get_text()))
+
+                        # Sauvegarde de la dernière section
+                        if current_title and description_text:
+                            extracted_data[f'presentation_titre_{title_count}'] = current_title
+                            extracted_data[f'presentation_description_{title_count}'] = ' '.join(description_text)
+
+        analyse_div = baseDom.find('div', {'color': 'black'}, string=lambda text: text and "Éléments clés de l'analyse" in text)
+        if analyse_div:
+            parent_div = analyse_div
+            for _ in range(3):
+                if parent_div:
+                    parent_div = parent_div.find_parent()
+                    if parent_div:
+                        ul_element = parent_div.find('ul', class_='css-i6zvb9')
+                        if ul_element:
+                            li_elements = ul_element.find_all('li', class_='css-1y34dmg')
+                            for i, li in enumerate(li_elements, start=1):
+                                title_div = li.find('div', class_='mb-2 css-1tt8cjm')  # Récupérer la div contenant le titre
+                                description_span = li.find('span', class_='css-nw50hi')  # Récupérer le span contenant la description
+                                if title_div:
+                                    extracted_data[f'analyse_titre_{i}'] = clean_text(title_div.get_text())
+                                if description_span:
+                                    extracted_data[f'analyse_description_{i}'] = clean_text(description_span.get_text())
+
+        document_div = baseDom.find('div', {'color': 'black'}, string=lambda text: text and "Documents" in text)
+        if document_div:
+            parent_div = document_div.find_parent()
+            if parent_div:
+                document_anchors = parent_div.find_all('a', href=True)
+                print(document_anchors)
+
+                for index, anchor in enumerate(document_anchors, start=1):
+                    title = anchor.get_text(strip=True)
+                    href = anchor['href']
+
+                    if title and href:
+                        extracted_data[f"document_titre_{index}"] = title
+                        extracted_data[f"document_lien_{index}"] = href
 
         return extracted_data
     except Exception as e:
